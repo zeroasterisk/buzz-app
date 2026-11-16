@@ -819,6 +819,7 @@ export class GooseRuntime {
         reads,
         [event, ...unseen.slice(-CONTEXT_LIMIT)],
         signingAuthority,
+        owner,
       ),
       reading.then((read) => read?.section),
     ]);
@@ -846,6 +847,7 @@ export class GooseRuntime {
       total: earlier.length + 1,
       ...(signingAuthority ? { signingAuthority } : {}),
       names,
+      owner,
       ...(project ? { project } : {}),
     };
   }

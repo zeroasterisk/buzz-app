@@ -371,6 +371,7 @@ export function harnessKit(sources: Sources): HarnessKit {
           reads,
           [event, ...unseen.slice(-CONTEXT_LIMIT)],
           signingAuthority,
+          agent.owner,
         ),
         reading.then((read) => read?.section),
       ]);
@@ -385,6 +386,7 @@ export function harnessKit(sources: Sources): HarnessKit {
         context: unseen,
         total: earlier.length + 1,
         names,
+        owner: agent.owner,
         ...(signingAuthority ? { signingAuthority } : {}),
         ...(project ? { project } : {}),
         ...(wake
