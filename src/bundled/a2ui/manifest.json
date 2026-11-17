@@ -1,0 +1,7 @@
+{
+  "id": "buzz.a2ui",
+  "name": "Interactive replies",
+  "apiVersion": 1,
+  "description": "Draw A2UI interactive replies from agents as native forms and cards.",
+  "discovery": { "category": "communication" }
+}
