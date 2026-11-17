@@ -9,6 +9,9 @@ const approved = new Set(["@tabler/icons-react", "@tabler/icons"]);
 // A closed policy needs an explicit non-icon side as well as approved icon catalogs.
 // Version changes remain ordinary; adding a package requires classifying it here.
 const nonIconDependencies = new Set([
+  "@a2ui/agent", // Interactive replies: Express parser; no icons.
+  "@a2ui/react", // Interactive replies: renders with Buzz components.
+  "@a2ui/web_core", // Interactive replies: catalog schemas and state.
   "@base-ui/react",
   "@biomejs/biome",
   "@buzz/author",

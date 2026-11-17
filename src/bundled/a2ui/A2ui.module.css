@@ -1,0 +1,99 @@
+/* Layout only. Controls keep the shared recipes; color and type come from roles. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.list[data-direction="horizontal"] {
+  flex-direction: row;
+  overflow-x: auto;
+}
+.stack[data-justify="center"],
+.row[data-justify="center"] {
+  justify-content: center;
+}
+.stack[data-justify="end"],
+.row[data-justify="end"] {
+  justify-content: flex-end;
+}
+.stack[data-justify="spaceBetween"],
+.row[data-justify="spaceBetween"] {
+  justify-content: space-between;
+}
+.stack[data-justify="spaceAround"],
+.row[data-justify="spaceAround"] {
+  justify-content: space-around;
+}
+.stack[data-justify="spaceEvenly"],
+.row[data-justify="spaceEvenly"] {
+  justify-content: space-evenly;
+}
+.stack[data-align="start"],
+.row[data-align="start"] {
+  align-items: flex-start;
+}
+.stack[data-align="center"] {
+  align-items: center;
+}
+.stack[data-align="end"],
+.row[data-align="end"] {
+  align-items: flex-end;
+}
+.stack[data-align="stretch"],
+.row[data-align="stretch"] {
+  align-items: stretch;
+}
+.card {
+  padding: var(--space-3);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-container);
+  background: var(--surface-inset);
+}
+.divider {
+  align-self: stretch;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border-standard);
+}
+.divider[data-axis="vertical"] {
+  border-top: 0;
+  border-left: 1px solid var(--border-standard);
+}
+.text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.image {
+  max-width: 100%;
+  border-radius: var(--radius-container);
+}
+.image[data-variant="icon"] {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+.image[data-variant="avatar"] {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+}
+.unsupported {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-standard);
+  border-radius: var(--radius-container);
+  color: var(--text-subtle);
+}
