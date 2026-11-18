@@ -61,7 +61,9 @@
   padding: var(--space-3);
   border: 1px solid var(--border-standard);
   border-radius: var(--radius-container);
-  background: var(--surface-inset);
+  /* The panel surface, as the diff card: host fields fill with --surface-inset
+     and have no resting border, so an inset card would hide them. */
+  background: var(--surface-panel);
 }
 .divider {
   align-self: stretch;

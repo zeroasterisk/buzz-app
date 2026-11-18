@@ -97,6 +97,20 @@ const references =
   "@Sam Rivera and @Studio assistant — check [the design notes](https://example.com/notes), [PR #42](https://github.com/block/buzz/pull/42), and [#design](buzz://channel/gallery).\n\nRaw service link: https://github.com/block/buzz/issues/42\n\n||The surprise is in the [release notes](https://example.com/release).||";
 const patch =
   "diff --git a/greeting.ts b/greeting.ts\n--- a/greeting.ts\n+++ b/greeting.ts\n@@ -1 +1 @@\n-const greeting = 'Hello';\n+const greeting = 'Welcome';\n";
+const a2uiTriage = `The flaky test failed 3 of the last 10 runs. Pick a next step.
+
+<a2ui>
+surface("triage")
+title = Text("Flaky test triage")
+pick = ChoicePicker(label="Next step", options=[{label: "Retry", value: "retry"}, {label: "Revert", value: "revert"}, {label: "Quarantine", value: "quarantine"}], value=$/choice, variant="mutuallyExclusive")
+note = TextField(label="Note for the team", value=$/note)
+notify = CheckBox(label="Tell #release", value=$/notify)
+go = Button(Text("Apply"), variant="primary", action=Event("apply", {choice: $/choice, note: $/note, notify: $/notify}))
+root = Card(Column([title, pick, note, notify, go]))
+$/choice = ["retry"]
+$/note = ""
+$/notify = false
+</a2ui>`;
 export const groups: Group[] = [
   {
     id: "agent-coordination",
@@ -632,6 +646,43 @@ export const groups: Group[] = [
         "Invalid chart",
         "The validation error and the source replace the chart.",
         '```buzz-chart\n{"version":1,"type":"bar"}\n```',
+        { authorId: agent },
+      ),
+    ],
+  },
+
+  {
+    id: "a2ui",
+    title: "Interactive replies",
+    description:
+      "Agent <a2ui> blocks drawn by the bundled plugin with host controls. People’s messages, open blocks and off-catalog components never become live UI.",
+    examples: [
+      single(
+        "a2ui-form",
+        "Agent triage form",
+        "Native radio, text field, checkbox and one primary button. Apply replies in the thread.",
+        a2uiTriage,
+        { authorId: agent },
+      ),
+      single(
+        "a2ui-human",
+        "Person’s copy",
+        "The same text from a person stays text, with no controls.",
+        a2uiTriage,
+        { authorId: teammate },
+      ),
+      single(
+        "a2ui-streaming",
+        "Streaming block",
+        "An unclosed block shows a loading state, never the DSL.",
+        'Drafting the options…\n\n<a2ui>\nsurface("draft")\nroot = Column([Text("Opt',
+        { authorId: agent },
+      ),
+      single(
+        "a2ui-blocked",
+        "Off-catalog component",
+        "An Iframe is outside the basic catalog, so the reply is blocked and its source shown.",
+        '<a2ui>\nsurface("embed")\nroot = Iframe(src="https://example.com")\n</a2ui>',
         { authorId: agent },
       ),
     ],

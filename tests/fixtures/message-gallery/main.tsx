@@ -14,6 +14,9 @@ import { Chart } from "../../../src/bundled/charts/Chart";
 import { ChartExpand } from "../../../src/bundled/charts/ChartExpand";
 import { MermaidDiagram } from "../../../src/bundled/mermaid/MermaidDiagram";
 import { MermaidExpand } from "../../../src/bundled/mermaid/MermaidExpand";
+import { createA2uiMessage } from "../../../src/bundled/a2ui/A2uiMessage";
+import { isA2uiMessage } from "../../../src/bundled/a2ui/trust";
+import type { RelayData } from "../../../src/features/relay/service";
 import { parseAccent } from "../../../src/shared/theme/accent";
 import referenceStyles from "../../../src/shared/InlineReference.module.css";
 import { CustomEmoji } from "../../../src/bundled/emoji/CustomEmoji";
@@ -78,6 +81,33 @@ const links: readonly Contribution<LinkRenderer>[] = [
     component: ({ url }) => <LinkLabel href={url} />,
   },
 ];
+// A ready relay over the gallery's own profiles and rows, enough for the a2ui
+// plugin's trust check, thread lookup and action replies. Replies go nowhere.
+const a2uiRows = groups
+  .filter((item) => item.id === "a2ui")
+  .flatMap((item) => item.examples.flatMap((example) => example.rows))
+  .filter((row) => !row.membership);
+const galleryRelay = {
+  snapshot: () => galleryReady,
+  subscribe: () => () => {},
+} as unknown as RelayData;
+const galleryReady = {
+  status: "ready",
+  generation: 1,
+  session: {
+    viewer: reader,
+    channels: {
+      list: () => ({ status: "ready", channels: [] }),
+      subscribeList: () => () => {},
+      window: () => ({ rows: a2uiRows }),
+      subscribeWindow: () => () => {},
+    },
+    messages: { reply: async () => {}, send: async () => {} },
+    profiles: { snapshot: () => profiles, subscribe: () => () => {} },
+    agentChoices: { snapshot: () => ({ identities: [] }) },
+    media,
+  },
+};
 const messages: readonly Contribution<MessageRenderer>[] = [
   {
     id: "diff",
@@ -87,6 +117,16 @@ const messages: readonly Contribution<MessageRenderer>[] = [
     title: "Code diff",
     matches: (row) => !!row.diff,
     component: DiffMessage,
+  },
+  {
+    id: "a2ui",
+    key: "gallery/a2ui",
+    pluginId: "gallery",
+    revision: "1",
+    title: "Interactive reply",
+    matches: (row) => isA2uiMessage(galleryRelay, row),
+    // Resolved at render time: the plugin draws its prose with `extensions`.
+    component: (props) => <GalleryA2ui {...props} />,
   },
 ];
 const allCodeBlocks: readonly Contribution<CodeBlockRenderer>[] = [
@@ -124,6 +164,7 @@ const extensions: ConversationExtensions = {
   codeBlocks: { snapshot: () => codeBlocks, subscribe },
   tools: { snapshot: () => emptyTools, subscribe },
 };
+const GalleryA2ui = createA2uiMessage(galleryRelay, extensions);
 const agentPubkeys = new Set([agent]);
 
 function Specimen({ example }: { example: Example }) {
