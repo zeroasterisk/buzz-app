@@ -17,6 +17,8 @@ import diffsManifest from "./diffs/manifest.json";
 import * as diffs from "./diffs";
 import mermaidManifest from "./mermaid/manifest.json";
 import * as mermaid from "./mermaid";
+import a2uiManifest from "./a2ui/manifest.json";
+import * as a2ui from "./a2ui";
 import chartsManifest from "./charts/manifest.json";
 import * as charts from "./charts";
 import fileViewerManifest from "./file-viewer/manifest.json";
@@ -147,6 +149,11 @@ export const bundledPlugins: readonly BundledPlugin[] = [
     manifest: { ...mermaidManifest, apiVersion: 1 },
     module: mermaid,
     enabledByDefault: true,
+  },
+  {
+    manifest: { ...a2uiManifest, apiVersion: 1 },
+    module: a2ui,
+    enabledByDefault: false,
   },
   {
     manifest: { ...chartsManifest, apiVersion: 1 },
