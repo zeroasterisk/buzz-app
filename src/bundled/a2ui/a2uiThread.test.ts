@@ -105,6 +105,32 @@ describe("A2uiThreadStore", () => {
     expect(store.sent("triage")).toBeUndefined();
   });
 
+  it("sends one answer per surface even when dispatched twice before the lock", async () => {
+    const store = new A2uiThreadStore(catalog);
+    const sent: string[] = [];
+    let release = () => {};
+    store.setSendMessage(
+      (text) =>
+        new Promise<void>((resolve) => {
+          sent.push(text);
+          release = resolve;
+        }),
+    );
+    store.sync([{ key: "m1:0", source: triage("first") }]);
+    const surface = store.surface("triage");
+    void surface?.dispatchAction({ event: { name: "go" } }, "button");
+    void surface?.dispatchAction({ event: { name: "go" } }, "button");
+    await Promise.resolve();
+    expect(store.sent("triage")).toBe("sending");
+    release();
+    await Promise.resolve();
+    await Promise.resolve();
+    void surface?.dispatchAction({ event: { name: "go" } }, "button");
+    await Promise.resolve();
+    expect(sent).toHaveLength(1);
+    expect(store.sent("triage")).toBe("sent");
+  });
+
   it("marks the surface failed when the reply cannot be sent", async () => {
     const store = new A2uiThreadStore(catalog);
     store.setSendMessage(async () => {

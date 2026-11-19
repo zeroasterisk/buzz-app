@@ -106,9 +106,9 @@ function SessionMessage({
       .list()
       .channels.find((item) => item.id === message.channelId);
     if (channel?.channelType === "solo" && !message.threadRootId)
-      session.messages.send(message.channelId, text, [message.authorId]);
+      await session.messages.send(message.channelId, text, [message.authorId]);
     else
-      session.messages.reply(message.channelId, rootId, text, [
+      await session.messages.reply(message.channelId, rootId, text, [
         message.authorId,
       ]);
   };
