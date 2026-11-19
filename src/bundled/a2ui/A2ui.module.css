@@ -111,6 +111,10 @@
   border-radius: var(--radius-container);
   background: var(--surface-inset);
 }
+/* A sent reply keeps its values but reads as disabled, like host buttons. */
+.locked {
+  opacity: 0.5;
+}
 .blocked {
   display: flex;
   flex-direction: column;

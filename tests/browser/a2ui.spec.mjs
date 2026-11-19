@@ -81,6 +81,27 @@ test("the reply stays inside a narrow column and at 1.5x text", async ({
   ).toBe(true);
 });
 
+test("Apply locks the reply visibly and keeps the chosen values", async ({
+  page,
+}) => {
+  await page.goto(gallery);
+  const form = row(page, "a2ui-form");
+  await form.getByRole("radio", { name: "Quarantine" }).click();
+  const note = form.getByRole("textbox", { name: "Note for the team" });
+  await note.fill("Quarantining until #415 lands");
+  await form.getByRole("button", { name: "Apply" }).click();
+  await expect(form.getByText("Sent to the agent")).toBeVisible();
+  const locked = form.locator("[data-a2ui-locked]");
+  await expect(locked).toHaveAttribute("inert", "");
+  expect(
+    Number(await locked.evaluate((e) => getComputedStyle(e).opacity)),
+  ).toBeLessThan(1);
+  await expect(
+    form.locator('[role="radio"][aria-checked="true"]'),
+  ).toHaveAccessibleName("Quarantine");
+  await expect(note).toHaveValue("Quarantining until #415 lands");
+});
+
 test("the reply follows the theme tokens and the field stands off the card", async ({
   page,
 }) => {

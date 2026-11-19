@@ -63,7 +63,11 @@ export default function A2uiBlock({
         if (!surface) return null;
         return (
           <div key={surfaceId} className={styles.stack}>
-            <div inert={locked} data-a2ui-locked={locked || undefined}>
+            <div
+              inert={locked}
+              data-a2ui-locked={locked || undefined}
+              className={locked ? styles.locked : undefined}
+            >
               <A2uiSurface surface={surface} />
             </div>
             {sent === "sent" && (
