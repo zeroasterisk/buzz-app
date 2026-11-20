@@ -98,6 +98,32 @@ it("matches only agent-authored, non-workflow messages with an <a2ui> block", ()
   expect(isA2uiMessage(relay, row("no block"))).toBe(false);
 });
 
+it("leaves a tag mentioned in prose or shown in a fence as a normal message", () => {
+  const { relay } = fakeRelay([]);
+  expect(
+    isA2uiMessage(relay, row("Wrap the form in an <a2ui> tag, then close it.")),
+  ).toBe(false);
+  expect(isA2uiMessage(relay, row(`Example:\n\n\`\`\`\n${FORM}\n\`\`\``))).toBe(
+    false,
+  );
+  expect(isA2uiMessage(relay, row(`Example:\n\n~~~\n${FORM}\n~~~`))).toBe(
+    false,
+  );
+});
+
+it("opens links in the prose around a block through the host opener", async () => {
+  const message = row(
+    `See [the run](https://example.com/run/7).\n\n${FORM.split("\n\n")[1]}`,
+  );
+  const { relay } = fakeRelay([message]);
+  const open = vi.fn(() => true);
+  const A2uiMessage = createA2uiMessage(relay, conversation());
+  render(<A2uiMessage message={message} canOpen={() => true} open={open} />);
+  expect(await screen.findByText("Flaky test triage")).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("link", { name: "the run" }));
+  expect(open).toHaveBeenCalledWith("https://example.com/run/7");
+});
+
 it("draws the form natively and replies in the thread, mentioning the agent", async () => {
   const message = row(FORM);
   const { relay, reply } = fakeRelay([message]);

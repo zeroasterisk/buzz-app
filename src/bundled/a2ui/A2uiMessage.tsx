@@ -73,6 +73,8 @@ export function createA2uiMessage(
 ) {
   return function A2uiMessage({
     message,
+    canOpen,
+    open,
   }: TargetOpener & { message: ChannelMessage }) {
     const state = useRelayConnection(relay);
     if (state.status !== "ready") return <pre>{message.content}</pre>;
@@ -82,6 +84,8 @@ export function createA2uiMessage(
         session={state.session}
         extensions={extensions}
         message={message}
+        canOpen={canOpen}
+        open={open}
       />
     );
   };
@@ -92,7 +96,9 @@ function SessionMessage({
   session,
   extensions,
   message,
-}: {
+  canOpen,
+  open,
+}: TargetOpener & {
   relay: RelayData;
   session: RelaySession;
   extensions: ConversationExtensions;
@@ -126,7 +132,8 @@ function SessionMessage({
             session={session}
             extensions={extensions}
             media={(url) => session.media(url)}
-            onOpenLink={() => false}
+            onOpenLink={open}
+            canOpenLink={canOpen}
           />
         ) : segment.closed ? (
           <Suspense key={segment.offset} fallback={<A2uiPending />}>
