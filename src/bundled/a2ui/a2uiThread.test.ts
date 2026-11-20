@@ -170,6 +170,49 @@ describe("A2uiThreadStore", () => {
     expect(texts(store, "triage")).toContain("first");
   });
 
+  it("replies to the agent that created the surface, whichever block set the sender", async () => {
+    const store = new A2uiThreadStore(catalog);
+    const owners: (string | undefined)[] = [];
+    store.setSendMessage(async (_text, authorId) => {
+      owners.push(authorId);
+    });
+    store.sync([
+      { key: "m1:0", source: triage("a"), authorId: "agent-a" },
+      {
+        key: "m2:0",
+        source: `surface("other")\nroot = Text("b")`,
+        authorId: "agent-b",
+      },
+    ]);
+    await store
+      .surface("triage")
+      ?.dispatchAction({ event: { name: "go" } }, "button");
+    await Promise.resolve();
+    expect(owners).toEqual(["agent-a"]);
+  });
+
+  it("blocks another agent's update and keeps the owner's surface", () => {
+    const store = new A2uiThreadStore(catalog);
+    store.sync([
+      { key: "m1:0", source: triage("mine"), authorId: "agent-a" },
+      { key: "m2:0", source: update("hijack"), authorId: "agent-b" },
+    ]);
+    expect(store.result("m2:0")).toEqual({
+      ok: false,
+      error: "Surface triage belongs to another agent",
+    });
+    expect(store.isSuperseded("m1:0", "triage")).toBe(false);
+    expect(texts(store, "triage")).toContain("mine");
+    expect(texts(store, "triage")).not.toContain("hijack");
+    store.sync([
+      { key: "m1:0", source: triage("mine"), authorId: "agent-a" },
+      { key: "m2:0", source: update("hijack"), authorId: "agent-b" },
+      { key: "m3:0", source: update("owner"), authorId: "agent-a" },
+    ]);
+    expect(store.result("m3:0")?.ok).toBe(true);
+    expect(texts(store, "triage")).toContain("owner");
+  });
+
   it("notifies subscribers until they unsubscribe", () => {
     const store = new A2uiThreadStore(catalog);
     let calls = 0;

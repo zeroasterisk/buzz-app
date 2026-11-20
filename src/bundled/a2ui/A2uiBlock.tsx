@@ -16,7 +16,7 @@ export default function A2uiBlock({
   threadKey: string;
   blockKey: string;
   blocks: readonly A2uiThreadBlock[];
-  onSendMessage: (text: string) => Promise<void>;
+  onSendMessage: (text: string, authorId: string | undefined) => Promise<void>;
 }) {
   const store = a2uiThreadStore<ReactCatalogComponent>(
     threadKey,

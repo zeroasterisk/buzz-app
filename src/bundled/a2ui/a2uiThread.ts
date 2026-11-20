@@ -21,7 +21,11 @@ export type A2uiSendState = "sending" | "sent" | "failed";
 type ActionHandler = NonNullable<
   ConstructorParameters<typeof MessageProcessor>[1]
 >;
-type SendMessage = (text: string) => Promise<void>;
+/** Sends `text` as a thread reply that mentions `authorId`, the agent that owns the surface. */
+type SendMessage = (
+  text: string,
+  authorId: string | undefined,
+) => Promise<void>;
 
 export class A2uiThreadStore<T extends ComponentApi = ComponentApi> {
   private processor: MessageProcessor<T>;
@@ -29,6 +33,8 @@ export class A2uiThreadStore<T extends ComponentApi = ComponentApi> {
   private applied: A2uiThreadBlock[] = [];
   private readonly results = new Map<string, A2uiBlockResult>();
   private readonly latestBlockBySurfaceId = new Map<string, string>();
+  /** The author of the block that created each surface: only they may update it. */
+  private readonly ownerBySurfaceId = new Map<string, string | undefined>();
   private readonly sentBySurfaceId = new Map<string, A2uiSendState>();
   /** Blocks this thread ever applied: a replay must not unlock what a sent action locked. */
   private readonly seen = new Set<string>();
@@ -52,6 +58,7 @@ export class A2uiThreadStore<T extends ComponentApi = ComponentApi> {
     this.applied = [];
     this.results.clear();
     this.latestBlockBySurfaceId.clear();
+    this.ownerBySurfaceId.clear();
   }
 
   /**
@@ -86,18 +93,31 @@ export class A2uiThreadStore<T extends ComponentApi = ComponentApi> {
     }).createParser();
     try {
       const surfaceIds = new Set<string>();
-      for (const part of parser.parseResponse(block.source, {
-        state: this.state,
-        wrapped: false,
-      })) {
-        if (part.type !== "a2ui") continue;
-        for (const message of part.a2ui) {
-          const body = Object.entries(message).find(
-            ([key]) => key !== "version",
-          )?.[1] as { surfaceId?: string } | undefined;
-          if (body?.surfaceId) surfaceIds.add(body.surfaceId);
+      const created = new Set<string>();
+      // All or nothing: a block that touches another author's surface changes nothing.
+      this.state.transaction(() => {
+        for (const part of parser.parseResponse(block.source, {
+          state: this.state,
+          wrapped: false,
+        })) {
+          if (part.type !== "a2ui") continue;
+          for (const message of part.a2ui) {
+            const [kind, body] = (Object.entries(message).find(
+              ([key]) => key !== "version",
+            ) ?? []) as [string?, { surfaceId?: string }?];
+            const id = body?.surfaceId;
+            if (!id) continue;
+            surfaceIds.add(id);
+            if (kind === "createSurface") created.add(id);
+            else if (
+              !created.has(id) &&
+              this.ownerBySurfaceId.get(id) !== block.authorId
+            )
+              throw new Error(`Surface ${id} belongs to another agent`);
+          }
         }
-      }
+      });
+      for (const id of created) this.ownerBySurfaceId.set(id, block.authorId);
       if (surfaceIds.size === 0) {
         this.results.set(block.key, { ok: false, error: "No surface" });
         return;
@@ -125,7 +145,10 @@ export class A2uiThreadStore<T extends ComponentApi = ComponentApi> {
     if (current === "sending" || current === "sent") return;
     this.setSent(action.surfaceId, "sending");
     try {
-      await sendMessage(a2uiActionMessage(action));
+      await sendMessage(
+        a2uiActionMessage(action),
+        this.ownerBySurfaceId.get(action.surfaceId),
+      );
       this.setSent(action.surfaceId, "sent");
     } catch {
       this.setSent(action.surfaceId, "failed");

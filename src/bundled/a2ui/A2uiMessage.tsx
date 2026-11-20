@@ -58,7 +58,11 @@ function useThreadBlocks(
       (a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1),
     );
     return a2uiThreadBlocks(
-      ordered.map((row) => ({ id: row.id, text: row.content })),
+      ordered.map((row) => ({
+        id: row.id,
+        text: row.content,
+        authorId: row.authorId,
+      })),
     );
   }, [rows, message, rootId, relay]);
 }
@@ -100,17 +104,17 @@ function SessionMessage({
   );
   const rootId = message.threadRootId ?? message.id;
   const blocks = useThreadBlocks(relay, session, message, rootId);
-  // Actions answer in the thread and mention the agent that drew the surface.
-  const sendMessage = async (text: string) => {
+  // Actions answer in the thread and mention the agent that owns the surface (the author of
+  // the block that created it), whichever block set the thread's sender.
+  const sendMessage = async (text: string, ownerId: string | undefined) => {
+    const authorId = ownerId ?? message.authorId;
     const channel = session.channels
       .list()
       .channels.find((item) => item.id === message.channelId);
     if (channel?.channelType === "solo" && !message.threadRootId)
-      await session.messages.send(message.channelId, text, [message.authorId]);
+      await session.messages.send(message.channelId, text, [authorId]);
     else
-      await session.messages.reply(message.channelId, rootId, text, [
-        message.authorId,
-      ]);
+      await session.messages.reply(message.channelId, rootId, text, [authorId]);
   };
   return (
     <div className={styles.message}>
