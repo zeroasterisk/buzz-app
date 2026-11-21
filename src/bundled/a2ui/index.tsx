@@ -1,5 +1,6 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { AddedTool } from "../../buzz-mcp/session-tools";
+import type { RelayData } from "../../features/relay/service";
 import type { A2uiPoster } from "./agentTools";
 import { createA2uiMessage } from "./A2uiMessage";
 import { isA2uiMessage } from "./trust";
@@ -20,11 +21,7 @@ export function apply(ctx: Context) {
 
 type A2uiAgents = {
   addTool(tool: AddedTool): void;
-  relay(
-    key: string,
-  ):
-    | { snapshot(): { status: string; session?: { messages: A2uiPoster } } }
-    | undefined;
+  relay(key: string): RelayData | undefined;
 };
 
 /** The full Express prompt on demand, and a send that checks blocks before posting. */
@@ -59,14 +56,16 @@ export function addA2uiTools(agents: A2uiAgents) {
       additionalProperties: false,
     },
     async call(client, context, args) {
-      const relay = agents.relay(client.key)?.snapshot();
-      const messages =
-        relay?.status === "ready" ? relay.session?.messages : undefined;
+      const relay = agents.relay(client.key);
+      const state = relay?.snapshot();
+      const messages: A2uiPoster | undefined =
+        state?.status === "ready" ? state.session.messages : undefined;
       return (await import("./agentTools")).sendA2ui(
         client,
         messages,
         context,
         args,
+        relay,
       );
     },
   });

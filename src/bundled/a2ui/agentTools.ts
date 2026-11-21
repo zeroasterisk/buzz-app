@@ -10,8 +10,10 @@ import {
   BasicCatalogThemeSchema,
 } from "@a2ui/web_core/catalogs/basic/v1";
 import type { BuzzClient, BuzzEvent, Context } from "../../buzz-mcp/client";
+import type { RelayData } from "../../features/relay/service";
 import { a2uiThreadBlocks, splitA2uiSegments } from "./a2uiMessage";
 import { A2uiThreadStore } from "./a2uiThread";
+import { isA2uiMessage } from "./trust";
 
 // Schema-only: the same id, components and functions the renderer's catalog registers.
 const catalog = new Catalog<ComponentApi>(
@@ -82,11 +84,22 @@ export type A2uiPoster = {
   reply(channelId: string, rootId: string, content: string): unknown;
 };
 
+/** Only blocks the renderer draws count: a person's or a workflow's `<a2ui>` text is prose
+ * there, so it must not claim a surface here either. Same predicate as the message matcher. */
+function drawn(relay: RelayData, event: BuzzEvent): boolean {
+  return isA2uiMessage(relay, {
+    authorId: event.pubkey,
+    content: event.content,
+    ...(event.kind === 40002 ? { agentEnvelope: true as const } : {}),
+  });
+}
+
 export async function sendA2ui(
   client: BuzzClient,
   messages: A2uiPoster | undefined,
   context: Context,
   args: Record<string, unknown>,
+  relay?: RelayData,
 ): Promise<string> {
   const text = typeof args.text === "string" ? args.text : "";
   const channel = context.channel;
@@ -96,13 +109,18 @@ export async function sendA2ui(
   const root = given || (context.topLevel ? undefined : context.root);
   if (root !== undefined && !HEX.test(root))
     throw new Error(`Not an event id: ${root}`);
-  const earlier = root
-    ? (await threadMessages(client, channel, root)).map((event) => ({
-        id: event.id,
-        text: event.content,
-        authorId: event.pubkey,
-      }))
-    : [];
+  if (root && !relay)
+    throw new Error("send_a2ui needs this agent's relay session.");
+  const earlier =
+    root && relay
+      ? (await threadMessages(client, channel, root))
+          .filter((event) => drawn(relay, event))
+          .map((event) => ({
+            id: event.id,
+            text: event.content,
+            authorId: event.pubkey,
+          }))
+      : [];
   const error = checkA2uiReply(text, earlier, client.pubkey);
   if (error) throw new Error(`Nothing was posted. ${error}`);
   const id = await (root

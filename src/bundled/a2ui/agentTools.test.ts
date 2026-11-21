@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BuzzClient, BuzzEvent } from "../../buzz-mcp/client";
 import type { AddedTool } from "../../buzz-mcp/session-tools";
+import type { RelayData } from "../../features/relay/service";
 import { A2UI_POINTER, addA2uiTools } from "./index";
 
 const agent = "a".repeat(64);
 const other = "b".repeat(64);
+const person = "e".repeat(64);
 const root = "c".repeat(64);
 const channel = "chan";
 
@@ -49,9 +51,24 @@ function setup(thread: BuzzEvent[] = []) {
   };
   addA2uiTools({
     addTool: (tool) => tools.push(tool),
-    relay: () => ({
-      snapshot: () => ({ status: "ready", session: { messages } }),
-    }),
+    // Both agents are known agent profiles; `person` is not.
+    relay: () =>
+      ({
+        snapshot: () => ({
+          status: "ready",
+          session: {
+            messages,
+            profiles: {
+              snapshot: () =>
+                new Map([
+                  [agent, { isAgent: true }],
+                  [other, { isAgent: true }],
+                ]),
+            },
+            agentChoices: { snapshot: () => ({ identities: [] }) },
+          },
+        }),
+      }) as unknown as RelayData,
   });
   const client = {
     pubkey: agent,
@@ -121,6 +138,19 @@ describe("a2ui agent tools", () => {
       /belongs to another agent/,
     );
     expect(theirs.published).toHaveLength(0);
+  });
+
+  it("ignores a person's <a2ui> text, as the renderer does", async () => {
+    // The renderer draws a person's block as prose, so it owns no surface:
+    // the agent may create "triage", and may not update a surface that was never drawn.
+    const thread = [event(root, person, FORM, 1)];
+    const create = setup(thread);
+    await expect(create.send({ text: FORM })).resolves.toMatch(/^sent/);
+    const update = setup(thread);
+    await expect(update.send({ text: UPDATE("triage") })).rejects.toThrow(
+      /Nothing was posted/,
+    );
+    expect(update.published).toHaveLength(0);
   });
 
   it("refuses text with no block or an unclosed block", async () => {
