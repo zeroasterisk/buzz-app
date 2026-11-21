@@ -225,6 +225,47 @@ it("reads the thread when its root is outside the channel window", async () => {
   expect(dispose).toHaveBeenCalledTimes(1);
 });
 
+it("a root with replies reads its thread, and a later update supersedes it", async () => {
+  const rootId = "d".repeat(64);
+  const root = row(FORM, { id: rootId, createdAt: 1, replyCount: 1 });
+  const update = row(
+    '<a2ui>\nsurface("triage", update=true)\ntitle = Text("Triage applied")\nroot = Card(Column([title]))\n</a2ui>',
+    { id: "e".repeat(64), threadRootId: rootId, createdAt: 2 },
+  );
+  // The channel window holds the root only; replies live in the thread.
+  const { relay } = fakeRelay([root]);
+  const session = (
+    relay.snapshot() as unknown as { session: Record<string, unknown> }
+  ).session;
+  const listeners = new Set<() => void>();
+  let snapshot = { status: "loading", root: undefined, replies: [] } as {
+    status: string;
+    root: ChannelMessage | undefined;
+    replies: ChannelMessage[];
+  };
+  const thread = vi.fn(() => ({
+    snapshot: () => snapshot,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    refresh: async () => {},
+    dispose: () => {},
+  }));
+  session.thread = thread;
+  const A2uiMessage = createA2uiMessage(relay, conversation());
+  render(
+    <A2uiMessage message={root} canOpen={() => false} open={() => false} />,
+  );
+  expect(thread).toHaveBeenCalledWith("channel", rootId);
+  // The root keeps drawing while its replies load.
+  expect(await screen.findByText("Flaky test triage")).toBeInTheDocument();
+  snapshot = { status: "ready", root, replies: [update] };
+  for (const listener of listeners) listener();
+  expect(await screen.findByText("Updated below")).toBeInTheDocument();
+  expect(screen.queryByText("Flaky test triage")).toBeNull();
+});
+
 it("opens no thread reader when the window holds the root", async () => {
   const message = row(FORM);
   const { relay } = fakeRelay([message]);

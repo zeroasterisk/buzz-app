@@ -88,11 +88,18 @@ function useThreadBlocks(
     () => session.channels.window(message.channelId).rows ?? none,
     () => none,
   );
-  const needed =
-    !!message.threadRootId && !rows.some((row) => row.id === rootId);
+  // The channel window holds top-level rows only: a reply whose root is outside it, and a
+  // root with replies (a later reply may update its surface), both read the thread.
+  const needed = message.threadRootId
+    ? !rows.some((row) => row.id === rootId)
+    : message.replyCount > 0;
   const thread = useThreadReader(session, message.channelId, rootId, needed);
+  // Only a reply waits for its root; a root keeps drawing while its replies load.
   const loading =
-    needed && thread?.status !== "ready" && thread?.status !== "error";
+    needed &&
+    !!message.threadRootId &&
+    thread?.status !== "ready" &&
+    thread?.status !== "error";
   const blocks = useMemo(() => {
     const byId = new Map<string, ChannelMessage>();
     const read = thread ? [thread.root, ...thread.replies] : [];
