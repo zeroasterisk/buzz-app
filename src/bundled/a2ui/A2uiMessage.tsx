@@ -1,4 +1,11 @@
-import { lazy, Suspense, useMemo, useSyncExternalStore } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type {
   ConversationExtensions,
   TargetOpener,
@@ -8,6 +15,7 @@ import type { ChannelMessage } from "../../features/relay/contracts";
 import { useRelayConnection } from "../../features/relay/react";
 import type { RelayData } from "../../features/relay/service";
 import type { RelaySession } from "../../features/relay/session";
+import type { ThreadSnapshot, ThreadView } from "../../features/relay/threads";
 import { LoadingRegion } from "../../shared/design-system/ui/LoadingRegion";
 import { ShimmerText } from "../../shared/design-system/ui/ShimmerText";
 import {
@@ -34,27 +42,69 @@ export function A2uiPending() {
 }
 
 const none: readonly ChannelMessage[] = [];
+const noThread: ThreadSnapshot | undefined = undefined;
 
-/** The thread's agent replies with `<a2ui>`, oldest first, so a later block can update an earlier surface. */
+/** A thread reply whose root is outside the channel window owns a bounded thread
+ * reader (disposed on unmount), so earlier blocks it updates are still found. */
+function useThreadReader(
+  session: RelaySession,
+  channelId: string,
+  rootId: string,
+  needed: boolean,
+): ThreadSnapshot | undefined {
+  const [view, setView] = useState<ThreadView>();
+  useEffect(() => {
+    if (!needed) return;
+    let owned: ThreadView;
+    try {
+      owned = session.thread(channelId, rootId);
+    } catch {
+      return; // No capacity or no valid id: fall back to the window alone.
+    }
+    setView(owned);
+    void owned.refresh();
+    return () => {
+      setView(undefined);
+      owned.dispose();
+    };
+  }, [session, channelId, rootId, needed]);
+  return useSyncExternalStore(
+    (listener) => view?.subscribe(listener) ?? (() => {}),
+    () => view?.snapshot() ?? noThread,
+    () => noThread,
+  );
+}
+
+/** The thread's agent replies with `<a2ui>`, oldest first, so a later block can update an earlier surface.
+ * `loading` while a thread reader is still fetching blocks the window doesn't hold. */
 function useThreadBlocks(
   relay: RelayData,
   session: RelaySession,
   message: ChannelMessage,
   rootId: string,
-): readonly A2uiThreadBlock[] {
+): { blocks: readonly A2uiThreadBlock[]; loading: boolean } {
   const rows = useSyncExternalStore(
     (listener) => session.channels.subscribeWindow(message.channelId, listener),
     () => session.channels.window(message.channelId).rows ?? none,
     () => none,
   );
-  return useMemo(() => {
-    const thread = rows.filter(
-      (row) =>
+  const needed =
+    !!message.threadRootId && !rows.some((row) => row.id === rootId);
+  const thread = useThreadReader(session, message.channelId, rootId, needed);
+  const loading =
+    needed && thread?.status !== "ready" && thread?.status !== "error";
+  const blocks = useMemo(() => {
+    const byId = new Map<string, ChannelMessage>();
+    const read = thread ? [thread.root, ...thread.replies] : [];
+    for (const row of [...rows, ...read])
+      if (
+        row &&
         row.id !== message.id &&
         (row.threadRootId ?? row.id) === rootId &&
-        isA2uiMessage(relay, row),
-    );
-    const ordered = [...thread, message].sort(
+        isA2uiMessage(relay, row)
+      )
+        byId.set(row.id, row);
+    const ordered = [...byId.values(), message].sort(
       (a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1),
     );
     return a2uiThreadBlocks(
@@ -64,7 +114,8 @@ function useThreadBlocks(
         authorId: row.authorId,
       })),
     );
-  }, [rows, message, rootId, relay]);
+  }, [rows, thread, message, rootId, relay]);
+  return { blocks, loading };
 }
 
 export function createA2uiMessage(
@@ -109,7 +160,7 @@ function SessionMessage({
     [message.content],
   );
   const rootId = message.threadRootId ?? message.id;
-  const blocks = useThreadBlocks(relay, session, message, rootId);
+  const { blocks, loading } = useThreadBlocks(relay, session, message, rootId);
   // Actions answer in the thread and mention the agent that owns the surface (the author of
   // the block that created it), whichever block set the thread's sender.
   const sendMessage = async (text: string, ownerId: string | undefined) => {
@@ -135,7 +186,7 @@ function SessionMessage({
             onOpenLink={open}
             canOpenLink={canOpen}
           />
-        ) : segment.closed ? (
+        ) : segment.closed && !loading ? (
           <Suspense key={segment.offset} fallback={<A2uiPending />}>
             <A2uiBlock
               source={segment.source}
