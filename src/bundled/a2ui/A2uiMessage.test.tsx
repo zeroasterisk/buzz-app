@@ -266,6 +266,53 @@ it("a root with replies reads its thread, and a later update supersedes it", asy
   expect(screen.queryByText("Flaky test triage")).toBeNull();
 });
 
+it("rows of one thread share one reader, disposed with the last row", async () => {
+  const rootId = "d".repeat(64);
+  const first = row(FORM.replace('"triage"', '"one"'), {
+    id: "e".repeat(64),
+    threadRootId: rootId,
+    createdAt: 2,
+  });
+  const second = row(FORM.replace('"triage"', '"two"'), {
+    id: "f".repeat(64),
+    threadRootId: rootId,
+    createdAt: 3,
+  });
+  // The channel window holds neither the root nor its replies.
+  const { relay } = fakeRelay([]);
+  const session = (
+    relay.snapshot() as unknown as { session: Record<string, unknown> }
+  ).session;
+  const dispose = vi.fn();
+  const refresh = vi.fn(async () => {});
+  const snapshot = {
+    status: "ready",
+    root: undefined,
+    replies: [first, second],
+  };
+  const thread = vi.fn(() => ({
+    snapshot: () => snapshot,
+    subscribe: () => () => {},
+    refresh,
+    dispose,
+  }));
+  session.thread = thread;
+  const A2uiMessage = createA2uiMessage(relay, conversation());
+  const a = render(
+    <A2uiMessage message={first} canOpen={() => false} open={() => false} />,
+  );
+  const b = render(
+    <A2uiMessage message={second} canOpen={() => false} open={() => false} />,
+  );
+  expect(await screen.findAllByText("Flaky test triage")).toHaveLength(2);
+  expect(thread).toHaveBeenCalledTimes(1);
+  expect(refresh).toHaveBeenCalledTimes(1);
+  a.unmount();
+  expect(dispose).not.toHaveBeenCalled();
+  b.unmount();
+  expect(dispose).toHaveBeenCalledTimes(1);
+});
+
 it("opens no thread reader when the window holds the root", async () => {
   const message = row(FORM);
   const { relay } = fakeRelay([message]);

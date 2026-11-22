@@ -44,8 +44,52 @@ export function A2uiPending() {
 const none: readonly ChannelMessage[] = [];
 const noThread: ThreadSnapshot | undefined = undefined;
 
-/** A thread reply whose root is outside the channel window owns a bounded thread
- * reader (disposed on unmount), so earlier blocks it updates are still found. */
+// Rows in one thread share one reader: the session caps open views at 64.
+const readers = new WeakMap<
+  RelaySession,
+  Map<string, { view: ThreadView; count: number }>
+>();
+
+function acquireThread(
+  session: RelaySession,
+  channelId: string,
+  rootId: string,
+): ThreadView {
+  let open = readers.get(session);
+  if (!open) {
+    open = new Map();
+    readers.set(session, open);
+  }
+  const key = `${channelId}:${rootId}`;
+  const shared = open.get(key);
+  if (shared) {
+    shared.count += 1;
+    return shared.view;
+  }
+  const view = session.thread(channelId, rootId);
+  open.set(key, { view, count: 1 });
+  void view.refresh();
+  return view;
+}
+
+function releaseThread(
+  session: RelaySession,
+  channelId: string,
+  rootId: string,
+) {
+  const open = readers.get(session);
+  const key = `${channelId}:${rootId}`;
+  const shared = open?.get(key);
+  if (!shared) return;
+  shared.count -= 1;
+  if (shared.count > 0) return;
+  open?.delete(key);
+  shared.view.dispose();
+}
+
+/** A thread reply whose root is outside the channel window reads the thread through a
+ * reader shared by every row of that thread (disposed with the last one), so earlier
+ * blocks it updates are still found. */
 function useThreadReader(
   session: RelaySession,
   channelId: string,
@@ -57,15 +101,14 @@ function useThreadReader(
     if (!needed) return;
     let owned: ThreadView;
     try {
-      owned = session.thread(channelId, rootId);
+      owned = acquireThread(session, channelId, rootId);
     } catch {
       return; // No capacity or no valid id: fall back to the window alone.
     }
     setView(owned);
-    void owned.refresh();
     return () => {
       setView(undefined);
-      owned.dispose();
+      releaseThread(session, channelId, rootId);
     };
   }, [session, channelId, rootId, needed]);
   return useSyncExternalStore(
