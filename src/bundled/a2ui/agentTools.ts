@@ -16,7 +16,7 @@ import { A2uiThreadStore } from "./a2uiThread";
 import { isA2uiMessage } from "./trust";
 
 // Schema-only: the same id, components and functions the renderer's catalog registers.
-const catalog = new Catalog<ComponentApi>(
+export const catalog = new Catalog<ComponentApi>(
   "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
   "1.0",
   BASIC_COMPONENTS,

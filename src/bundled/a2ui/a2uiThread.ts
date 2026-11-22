@@ -196,11 +196,6 @@ export class A2uiThreadStore<T extends ComponentApi = ComponentApi> {
     };
   }
 
-  /** Whether an action can reach the agent (a rendered block set the thread's send function). */
-  canSend(): boolean {
-    return this.sendMessage !== undefined;
-  }
-
   result(key: string): A2uiBlockResult | undefined {
     return this.results.get(key);
   }

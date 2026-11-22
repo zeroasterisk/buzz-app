@@ -1,21 +1,8 @@
-import { Catalog, type ComponentApi } from "@a2ui/web_core";
-import {
-  BASIC_COMPONENTS,
-  BASIC_FUNCTIONS,
-  BasicCatalogThemeSchema,
-} from "@a2ui/web_core/catalogs/basic/v1";
 import { describe, expect, it } from "vitest";
 
 import { A2uiThreadStore, a2uiThreadStore } from "./a2uiThread";
-
 // Schema-only basic catalog: the store needs the component APIs, not the look.
-const catalog = new Catalog<ComponentApi>(
-  "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
-  "1.0",
-  BASIC_COMPONENTS,
-  BASIC_FUNCTIONS,
-  BasicCatalogThemeSchema,
-);
+import { catalog } from "./agentTools";
 
 const triage = (text: string) =>
   `surface("triage")\nroot = Column([Text("${text}"), Button(Text("Go"), action=Event("go", {}))])`;
@@ -210,6 +197,32 @@ describe("A2uiThreadStore", () => {
       { key: "m3:0", source: update("owner"), authorId: "agent-a" },
     ]);
     expect(store.result("m3:0")?.ok).toBe(true);
+    expect(texts(store, "triage")).toContain("owner");
+  });
+
+  it("blocks another agent re-creating the owner's surface", () => {
+    // RendererState rejects a duplicate createSurface inside the transaction,
+    // so the owner map is never overwritten. This pins that guarantee.
+    const store = new A2uiThreadStore(catalog);
+    store.sync([
+      { key: "m1:0", source: triage("mine"), authorId: "agent-a" },
+      { key: "m2:0", source: triage("hijack"), authorId: "agent-b" },
+    ]);
+    expect(store.result("m2:0")?.ok).toBe(false);
+    expect(store.isSuperseded("m1:0", "triage")).toBe(false);
+    expect(texts(store, "triage")).toContain("mine");
+    expect(texts(store, "triage")).not.toContain("hijack");
+    store.sync([
+      { key: "m1:0", source: triage("mine"), authorId: "agent-a" },
+      { key: "m2:0", source: triage("hijack"), authorId: "agent-b" },
+      { key: "m3:0", source: update("owner"), authorId: "agent-a" },
+      { key: "m4:0", source: update("again"), authorId: "agent-b" },
+    ]);
+    expect(store.result("m3:0")?.ok).toBe(true);
+    expect(store.result("m4:0")).toEqual({
+      ok: false,
+      error: "Surface triage belongs to another agent",
+    });
     expect(texts(store, "triage")).toContain("owner");
   });
 
