@@ -7,3 +7,8 @@ overrides:
   # @a2ui/react declares zod ^3.25.76 as a peer; without this pnpm binds it to
   # @modelcontextprotocol/server's zod 4 and the catalog types stop matching.
   "@a2ui/react>zod": 3.25.76
+minimumReleaseAgeExclude:
+  - '@a2ui/agent@0.2.1'
+  - '@a2ui/markdown-it@0.2.4'
+  - '@a2ui/react@0.16.1'
+  - '@a2ui/web_core@0.16.1'
