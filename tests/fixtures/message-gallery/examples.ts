@@ -665,6 +665,13 @@ export const groups: Group[] = [
         { authorId: agent },
       ),
       single(
+        "a2ui-wide",
+        "Long labels",
+        "An unbroken run id and a four-button row wrap inside a narrow column.",
+        '<a2ui>\nsurface("wide")\ntitle = Text("Run b7f3c1e9d2a4f6081357924680acebdf1234567890abcdef failed on ci-linux-x64-large-runner-pool")\nr = Row([Button(Text("Retry all"), action=Event("a", {})), Button(Text("Revert merge"), action=Event("b", {})), Button(Text("Quarantine"), action=Event("c", {})), Button(Text("Open logs"), action=Event("d", {}))])\nroot = Card(Column([title, r]))\n</a2ui>',
+        { authorId: agent },
+      ),
+      single(
         "a2ui-human",
         "Person’s copy",
         "The same text from a person stays text, with no controls.",

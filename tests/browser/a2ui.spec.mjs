@@ -60,7 +60,10 @@ test("the reply stays inside a narrow column and at 1.5x text", async ({
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto(gallery);
   await page.getByRole("button", { name: "Narrow preview" }).click();
-  await page.addStyleTag({ content: "html { font-size: 150%; }" });
+  // Inline: the host's own `html` font-size rule outranks an added style tag.
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "150%";
+  });
   const form = row(page, "a2ui-form");
   const apply = form.getByRole("button", { name: "Apply" });
   await expect(apply).toBeVisible();
@@ -74,6 +77,39 @@ test("the reply stays inside a narrow column and at 1.5x text", async ({
     expect(box.x + box.width).toBeLessThanOrEqual(360);
   }
   expect(await overflows(form)).toBe(false);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("long labels and a wide row wrap inside a narrow column at 1.5x text", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto(gallery);
+  await page.getByRole("button", { name: "Narrow preview" }).click();
+  // Inline: the host's own `html` font-size rule outranks an added style tag.
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "150%";
+  });
+  const wide = row(page, "a2ui-wide");
+  await expect(wide.getByRole("button", { name: "Open logs" })).toBeVisible();
+  for (const button of await wide.locator("[data-a2ui-surface] button").all()) {
+    const box = await button.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+    expect(await overflows(button)).toBe(false);
+  }
+  const surface = wide.locator("[data-a2ui-surface]");
+  expect(
+    await surface.evaluate((s) =>
+      [s, ...s.querySelectorAll("*")].some(
+        (n) => n.clientWidth > 0 && n.scrollWidth > n.clientWidth + 1,
+      ),
+    ),
+  ).toBe(false);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -79,6 +79,20 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+/* Agent labels can outgrow a narrow column at large text: keep buttons inside it, as the
+   host's empty-state actions do. */
+/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules global selector targets the shared Button element. */
+.stack :global(.buzz-button) {
+  max-inline-size: 100%;
+  padding-inline: var(--space-2);
+  white-space: normal;
+}
+/* Wrap between words; split a word only when it alone is wider than the column. */
+/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules global selector targets the shared Button label. */
+.stack :global(.buzz-button-label) {
+  flex-wrap: wrap;
+  overflow-wrap: break-word;
+}
 .image {
   max-width: 100%;
   border-radius: var(--radius-container);
